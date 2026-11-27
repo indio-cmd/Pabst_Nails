@@ -1,4 +1,16 @@
+
 import { supabase } from '../config/supabase.js'
+
+function normalizarHorario(horario) {
+  if (
+    typeof horario !== 'string' ||
+    !/^([01]\d|2[0-3]):[0-5]\d(?::00)?$/.test(horario)
+  ) {
+    throw new Error('HORARIO_INVALIDO')
+  }
+
+  return horario.slice(0, 5)
+}
 
 function converterHorario(horario) {
   const [horas, minutos] = horario.split(':').map(Number)
@@ -9,8 +21,8 @@ function converterHorario(horario) {
 export async function listarDisponibilidade() {
   const { data, error } = await supabase
     .from('disponibilidade')
-    .select('*')
-    .order('dia_semana')
+    .select('id, dia_semana, horario_inicio, horario_fim, ativo')
+    .order('dia_semana', { ascending: true })
 
   if (error) throw error
 
@@ -18,9 +30,25 @@ export async function listarDisponibilidade() {
 }
 
 export async function alterarDisponibilidade(id, dados) {
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+    throw new Error('NENHUMA_ALTERACAO')
+  }
+
+  const camposPermitidos = [
+    'horario_inicio',
+    'horario_fim',
+    'ativo'
+  ]
+
+  const camposRecebidos = Object.keys(dados)
+
+  if (camposRecebidos.some(campo => !camposPermitidos.includes(campo))) {
+    throw new Error('NENHUMA_ALTERACAO')
+  }
+
   const { data: atual, error: erroBusca } = await supabase
     .from('disponibilidade')
-    .select('*')
+    .select('id, dia_semana, horario_inicio, horario_fim, ativo')
     .eq('id', id)
     .maybeSingle()
 
@@ -30,18 +58,23 @@ export async function alterarDisponibilidade(id, dados) {
     throw new Error('DISPONIBILIDADE_NAO_ENCONTRADA')
   }
 
-  const horarioInicio = dados.horario_inicio ?? atual.horario_inicio
-  const horarioFim = dados.horario_fim ?? atual.horario_fim
+  const horarioInicio = normalizarHorario(
+    dados.horario_inicio ?? atual.horario_inicio
+  )
 
-  if (
-    !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(horarioInicio) ||
-    !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(horarioFim)
-  ) {
-    throw new Error('HORARIO_INVALIDO')
-  }
+  const horarioFim = normalizarHorario(
+    dados.horario_fim ?? atual.horario_fim
+  )
 
   if (converterHorario(horarioInicio) >= converterHorario(horarioFim)) {
     throw new Error('INTERVALO_INVALIDO')
+  }
+
+  if (
+    dados.ativo !== undefined &&
+    typeof dados.ativo !== 'boolean'
+  ) {
+    throw new Error('HORARIO_INVALIDO')
   }
 
   const atualizacoes = {}
@@ -66,7 +99,7 @@ export async function alterarDisponibilidade(id, dados) {
     .from('disponibilidade')
     .update(atualizacoes)
     .eq('id', id)
-    .select('*')
+    .select('id, dia_semana, horario_inicio, horario_fim, ativo')
     .single()
 
   if (error) throw error

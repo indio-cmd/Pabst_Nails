@@ -1,23 +1,46 @@
+
 import { authClient } from '../config/authClient.js'
+
+function uuidValido(id) {
+  return typeof id === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+}
 
 export async function loginAdmin(req, res) {
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({
+        mensagem: 'Envie o email e a senha em formato JSON'
+      })
+    }
+
     const { email, password } = req.body
 
-    if (!email || !password) {
+    if (
+      typeof email !== 'string' ||
+      typeof password !== 'string' ||
+      !email.trim() ||
+      !password
+    ) {
       return res.status(400).json({
         mensagem: 'Informe seu email e senha'
       })
     }
 
-    if (!process.env.ADMIN_USER_ID) {
+    const adminId = process.env.ADMIN_USER_ID?.trim()
+
+    if (!uuidValido(adminId)) {
+      console.error('ADMIN_USER_ID não configurado corretamente')
+
       return res.status(500).json({
-        mensagem: 'ID da administradora não configurado'
+        mensagem: 'Configuração da administradora inválida'
       })
     }
 
+    const emailLimpo = email.trim()
+
     const { data, error } = await authClient.auth.signInWithPassword({
-      email: email.trim(),
+      email: emailLimpo,
       password
     })
 
@@ -27,7 +50,7 @@ export async function loginAdmin(req, res) {
       })
     }
 
-    if (data.user.id !== process.env.ADMIN_USER_ID) {
+    if (data.user.id !== adminId) {
       return res.status(403).json({
         mensagem: 'Você não tem autorização de administradora'
       })
@@ -45,7 +68,7 @@ export async function loginAdmin(req, res) {
     })
 
   } catch (error) {
-    console.log(error)
+    console.error('Erro ao realizar login:', error)
 
     return res.status(500).json({
       mensagem: 'Erro ao realizar login'

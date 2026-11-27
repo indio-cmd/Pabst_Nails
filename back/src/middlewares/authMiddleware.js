@@ -1,16 +1,35 @@
+
 import { authClient } from '../config/authClient.js'
 
 export async function verificarAdmin(req, res, next) {
   try {
+    const adminId = process.env.ADMIN_USER_ID?.trim()
+
+    if (!adminId) {
+      console.error('ADMIN_USER_ID não configurado')
+
+      return res.status(500).json({
+        mensagem: 'Configuração de autenticação inválida'
+      })
+    }
+
     const authorization = req.headers.authorization
 
-    if (!authorization || !authorization.startsWith('Bearer ')) {
+    if (typeof authorization !== 'string') {
       return res.status(401).json({
         mensagem: 'Token não informado'
       })
     }
 
-    const token = authorization.slice(7).trim()
+    const correspondencia = authorization.match(/^Bearer\s+(\S+)$/i)
+
+    if (!correspondencia) {
+      return res.status(401).json({
+        mensagem: 'Formato de autenticação inválido'
+      })
+    }
+
+    const token = correspondencia[1]
 
     const { data, error } = await authClient.auth.getUser(token)
 
@@ -20,7 +39,7 @@ export async function verificarAdmin(req, res, next) {
       })
     }
 
-    if (data.user.id !== process.env.ADMIN_USER_ID) {
+    if (data.user.id !== adminId) {
       return res.status(403).json({
         mensagem: 'Acesso permitido somente à administradora'
       })
@@ -28,10 +47,10 @@ export async function verificarAdmin(req, res, next) {
 
     req.user = data.user
 
-    next()
+    return next()
 
   } catch (error) {
-    console.log(error)
+    console.error('Erro ao verificar autenticação:', error)
 
     return res.status(500).json({
       mensagem: 'Erro ao verificar autenticação'
