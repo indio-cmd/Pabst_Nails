@@ -1,5 +1,6 @@
 import { criarAgendamento } from '../services/agendamentosService.js'
 import {
+  alterarStatusAgendamento,
   listarAgendamentos
 } from '../services/agendamentosService.js'
 
@@ -88,6 +89,39 @@ export async function buscarAgendamentos(req, res) {
 
     return res.status(500).json({
       mensagem: 'Erro ao buscar agendamentos'
+    })
+  }
+}
+
+export async function atualizarStatus(req, res) {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+
+    if (!['confirmado', 'cancelado'].includes(status)) {
+      return res.status(400).json({
+        mensagem: 'Status inválido'
+      })
+    }
+
+    const agendamento = await alterarStatusAgendamento(id, status)
+
+    return res.status(200).json({
+      mensagem: 'Status atualizado com sucesso',
+      agendamento
+    })
+
+  } catch (error) {
+    console.log(error)
+
+    if (error.message === 'AGENDAMENTO_NAO_ENCONTRADO') {
+      return res.status(404).json({
+        mensagem: 'Agendamento não encontrado'
+      })
+    }
+
+    return res.status(500).json({
+      mensagem: 'Erro ao atualizar agendamento'
     })
   }
 }

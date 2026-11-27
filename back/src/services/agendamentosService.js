@@ -114,3 +114,22 @@ export async function listarAgendamentos() {
 
   return data
 }
+
+export async function alterarStatusAgendamento(id, status) {
+  const { data, error } = await supabase
+    .from('agendamento')
+    .update({ status })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  if (!data) {
+    throw new Error('AGENDAMENTO_NAO_ENCONTRADO')
+  }
+
+  return data
+}
